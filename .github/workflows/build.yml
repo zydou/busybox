@@ -1,0 +1,55 @@
+---
+name: busybox
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+        description: version to build (without "v")
+        default: 1.35.0
+        type: string
+
+permissions: write-all
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [musl, glibc, uclibc]
+        arch: [amd64, arm64]
+
+    name: Build ${{matrix.arch}}-${{matrix.variant}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build
+        uses: docker/build-push-action@master
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/${{matrix.arch}}
+          push: false
+          build-args: |
+            VERSION=${{inputs.version}}
+            VARIANT=${{matrix.variant}}
+          outputs: type=local,dest=bin/
+
+      - name: Upload ${{matrix.arch}}-${{matrix.variant}}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp bin/busybox .
+          tar -czf "busybox-v${{inputs.version}}-linux-${{matrix.arch}}-${{matrix.variant}}.tar.gz" busybox
+          # create release if not exist
+          gh release create "${{inputs.version}}" --notes "Release busybox v${{inputs.version}}" --title "${{inputs.version}}" --repo "${{github.repository}}" || true
+          # delete the asset if exists
+          gh release delete-asset "${{inputs.version}}" "busybox-v${{inputs.version}}-linux-${{matrix.arch}}-${{matrix.variant}}.tar.gz" --yes --repo "${{github.repository}}" || true
+          gh release upload "${{inputs.version}}" "./busybox-v${{inputs.version}}-linux-${{matrix.arch}}-${{matrix.variant}}.tar.gz" --repo "${{github.repository}}"
