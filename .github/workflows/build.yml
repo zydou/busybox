@@ -18,7 +18,16 @@ jobs:
       fail-fast: false
       matrix:
         variant: [musl, glibc, uclibc]
-        arch: [386, amd64, arm, arm64, ppc64le, s390x]
+        arch: [386, amd64, arm, arm64]
+        include:
+          - {variant: musl, arch: ppc64le}
+          - {variant: musl, arch: s390x}
+          - {variant: glibc, arch: mips64le}
+          - {variant: glibc, arch: ppc64le}
+          - {variant: glibc, arch: s390x}
+          - {variant: uclibc, arch: mips64le}
+          - {variant: uclibc, arch: riscv64}
+
 
     name: Build ${{matrix.arch}}-${{matrix.variant}}
     runs-on: ubuntu-latest
